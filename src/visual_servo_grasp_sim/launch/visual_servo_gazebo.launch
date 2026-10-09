@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="scene_config" default="$(find visual_servo_grasp_sim)/config/scene.yaml"/>
+  <arg name="randomize_blocks" default="false"/>
+  <arg name="random_seed" default="0"/>
+  <arg name="gui" default="true"/>
+  <arg name="paused" default="false"/>
+  <arg name="initial_joint_positions" default="-J shoulder_pan_joint 0.0 -J shoulder_lift_joint -1.57 -J elbow_joint 1.57 -J wrist_1_joint -1.57 -J wrist_2_joint -1.57 -J wrist_3_joint 0.0"/>
+  <arg name="command_initial_pose" default="true"/>
+  <arg name="start_detection" default="true"/>
+  <arg name="start_moveit" default="true"/>
+  <arg name="start_controller" default="false"/>
+  <arg name="controller_block_id" default="1"/>
+  <arg name="controller_target_id" default="$(arg controller_block_id)"/>
+  <arg name="controller_interactive" default="false"/>
+  <arg name="use_scene_block_pose" default="false"/>
+  <arg name="grasp_tcp_center_z_offset" default="0.0"/>
+  <arg name="gripper_grasp_compression" default="0.004"/>
+  <arg name="use_gazebo_grasp_constraint" default="true"/>
+  <arg name="active_search_enabled" default="true"/>
+  <arg name="detection_stable_observations" default="3"/>
+  <arg name="initial_detection_timeout" default="3.0"/>
+  <arg name="search_margin" default="0.04"/>
+  <arg name="search_step_x" default="0.10"/>
+  <arg name="search_step_y" default="0.10"/>
+  <arg name="search_dwell_time" default="0.8"/>
+  <arg name="search_max_passes" default="2"/>
+  <arg name="search_poll_rate" default="10.0"/>
+  <arg name="search_tool0_z" default="nan"/>
+  <arg name="search_camera_frame" default="wrist_camera_optical_frame"/>
+
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" value="$(find visual_servo_grasp_sim)/worlds/visual_servo.world"/>
+    <arg name="paused" value="$(arg paused)"/>
+    <arg name="gui" value="$(arg gui)"/>
+  </include>
+
+  <param name="robot_description"
+         command="$(find xacro)/xacro '$(find visual_servo_grasp_sim)/urdf/ur5_robotiq85_camera.xacro'"/>
+
+  <rosparam file="$(find visual_servo_grasp_sim)/config/controllers.yaml" command="load"/>
+  <rosparam file="$(find visual_servo_grasp_sim)/config/detection.yaml" command="load" ns="detection"/>
+
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="125.0"/>
+  </node>
+
+  <node name="spawn_ur5_robotiq85_camera" pkg="gazebo_ros" type="spawn_model"
+        args="-urdf -param robot_description -model ur5_robotiq85_camera -z 0.0 $(arg initial_joint_positions)"
+        output="screen"/>
+
+  <node name="ros_control_controller_spawner" pkg="controller_manager" type="spawner"
+        args="--timeout 60 joint_state_controller eff_joint_traj_controller gripper_controller"
+        output="screen"/>
+
+  <node name="initial_pose_commander" pkg="visual_servo_grasp_sim" type="initial_pose_commander.py"
+        if="$(arg command_initial_pose)"
+        output="screen">
+    <param name="scene_config" value="$(arg scene_config)"/>
+    <param name="randomize_blocks" value="$(arg randomize_blocks)"/>
+    <param name="random_seed" value="$(arg random_seed)"/>
+  </node>
+
+  <node name="scene_spawner" pkg="visual_servo_grasp_sim" type="scene_spawner.py"
+        args="--config $(arg scene_config) --randomize $(arg randomize_blocks) --seed $(arg random_seed)"
+        output="screen"/>
+
+  <node name="digit_detector" pkg="visual_servo_grasp_sim" type="detection.py"
+        if="$(arg start_detection)"
+        output="screen"/>
+
+  <include file="$(find ur5_robotiq85_camera_moveit_config)/launch/move_group.launch"
+           if="$(eval arg('start_moveit') or arg('start_controller'))">
+    <arg name="moveit_controller_manager" value="simple"/>
+    <arg name="load_robot_description" value="false"/>
+  </include>
+
+  <node name="visual_servo_grasp_controller" pkg="visual_servo_grasp_sim" type="controller.py"
+        if="$(arg start_controller)"
+        output="screen">
+    <param name="block_id" value="$(arg controller_block_id)"/>
+    <param name="target_id" value="$(arg controller_target_id)"/>
+    <param name="interactive" value="$(arg controller_interactive)"/>
+    <param name="wait_for_initial_pose" value="$(arg command_initial_pose)"/>
+    <param name="scene_config" value="$(arg scene_config)"/>
+    <param name="randomize_blocks" value="$(arg randomize_blocks)"/>
+    <param name="random_seed" value="$(arg random_seed)"/>
+    <param name="use_scene_block_pose" value="$(arg use_scene_block_pose)"/>
+    <param name="grasp_tcp_center_z_offset" value="$(arg grasp_tcp_center_z_offset)"/>
+    <param name="gripper_grasp_compression" value="$(arg gripper_grasp_compression)"/>
+    <param name="use_gazebo_grasp_constraint" value="$(arg use_gazebo_grasp_constraint)"/>
+    <param name="active_search_enabled" value="$(arg active_search_enabled)"/>
+    <param name="detection_stable_observations" value="$(arg detection_stable_observations)"/>
+    <param name="initial_detection_timeout" value="$(arg initial_detection_timeout)"/>
+    <param name="search_margin" value="$(arg search_margin)"/>
+    <param name="search_step_x" value="$(arg search_step_x)"/>
+    <param name="search_step_y" value="$(arg search_step_y)"/>
+    <param name="search_dwell_time" value="$(arg search_dwell_time)"/>
+    <param name="search_max_passes" value="$(arg search_max_passes)"/>
+    <param name="search_poll_rate" value="$(arg search_poll_rate)"/>
+    <param name="search_tool0_z" value="$(arg search_tool0_z)"/>
+    <param name="search_camera_frame" value="$(arg search_camera_frame)"/>
+  </node>
+</launch>

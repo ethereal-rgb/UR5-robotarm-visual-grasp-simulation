@@ -1,0 +1,32 @@
+# Catkin generated files
+/build/
+/devel/
+/install/
+/log/
+/logs/
+/.catkin_workspace
+/src/CMakeLists.txt
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+# Local environment and credentials
+/.agents/
+/.codex/
+/.aws/
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+# Runtime output
+*.bag
+*.db3
+*.log
+.DS_Store
+# Upstream repository metadata (export script strips these directories)
+/src/robotiq/.git/
+/src/universal_robot/.git/
+/docs/
